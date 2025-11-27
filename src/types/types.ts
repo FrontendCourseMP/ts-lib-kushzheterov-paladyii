@@ -95,3 +95,5 @@ export interface FieldDescriptor {
   lastValue?: any; // Для отслеживания изменений
   isValid?: boolean; // Текущий статус
 }
+
+
