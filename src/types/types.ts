@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 // FORM GUARD
 
 //  ЛИТЕРАЛЫ И БАЗОВЫЕ ТИПЫ
@@ -96,77 +98,87 @@ export interface FieldDescriptor {
   isValid?: boolean; // Текущий статус
 }
 
-
 //  ТИПЫ ДЛЯ ФУНКЦИЙ
 
 // Тип для функций валидации - каждая проверяет одно правило
 export type ValidatorFunction = (
-    value: any,
-    ruleValue?: any,
-    field?: HTMLInputElement
-  ) => boolean;
+  value: any,
+  ruleValue?: any,
+  field?: HTMLInputElement
+) => boolean;
+
+// Функция для создания кастомных сообщений об ошибках
+export type ErrorMessageResolver = (
+  rule: ValidationRule,
+  fieldName: string
+) => string;
+
+//  ТИПЫ ДЛЯ ОБЪЕКТОВ
+
+// Объект со стандартными сообщениями об ошибках для разных правил
+export type ErrorMessages = {
+  [rule in ValidationRuleName]?: string;
+};
+
+// Реестр всех доступных валидаторов
+export type ValidatorsRegistry = {
+  [rule in ValidationRuleName]?: ValidatorFunction;
+};
+
+//  ТИПЫ ДЛЯ КЛАССА FORM GUARD
+
+// Интерфейс главного класса валидатора - описывает все публичные методы
+export interface IFormGuard {
+  // ОСНОВНЫЕ МЕТОДЫ ИЗ ЗАДАНИЯ
+  addField(fieldName: string, rules: ValidationRule[], options?: { suppressWarnings?: boolean }): IFormGuard;
+  validate(): ValidationResult;
+  suppressWarnings(suppress?: boolean): IFormGuard;
+
+  // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
+  getFieldValidity(fieldName: string): FieldValidity; // ОТВЕТ на вопрос "validity объект как достать"
+  clearErrors(): void;
+  destroy(): void;
   
-  // Функция для создания кастомных сообщений об ошибках
-  export type ErrorMessageResolver = (
-    rule: ValidationRule,
-    fieldName: string
-  ) => string;
-  
-  //  ТИПЫ ДЛЯ ОБЪЕКТОВ
-  
-  // Объект со стандартными сообщениями об ошибках для разных правил
-  export type ErrorMessages = {
-    [rule in ValidationRuleName]?: string;
-  };
-  
-  // Реестр всех доступных валидаторов
-  export type ValidatorsRegistry = {
-    [rule in ValidationRuleName]?: ValidatorFunction;
-  };
-  
-  //  ТИПЫ ДЛЯ КЛАССА FORM GUARD
-  
-  // Интерфейс главного класса валидатора - описывает все публичные методы
-  export interface IFormGuard {
-    // ОСНОВНЫЕ МЕТОДЫ ИЗ ЗАДАНИЯ
-    addField(fieldName: string, rules: ValidationRule[]): IFormGuard;
-    validate(): ValidationResult;
-    suppressWarnings(suppress?: boolean): IFormGuard;
-  
-    // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
-    getFieldValidity(fieldName: string): FieldValidity; // ОТВЕТ на вопрос "validity объект как достать"
-    clearErrors(): void;
-    destroy(): void;
+  // НОВЫЕ МЕТОДЫ для привязки к событиям
+  onSubmit(callback: (result: ValidationResult, event?: SubmitEvent) => void): IFormGuard;
+  enableAutoSubmit(): IFormGuard;
+}
+
+// Тип конструктора для создания new FormGuard(HTMLFormElement)
+export interface FormGuardConstructor {
+  new (form: HTMLFormElement, config?: FormGuardConfig): IFormGuard;
+}
+
+//  ТИПЫ ДЛЯ DOM ЭЛЕМЕНТОВ
+
+// Все поддерживаемые элементы формы
+export type FormFieldElement =
+  | HTMLInputElement
+  | HTMLSelectElement
+  | HTMLTextAreaElement;
+
+//  ВСПОМОГАТЕЛЬНЫЕ ТИПЫ
+
+// Результат валидации одного поля
+export interface SingleFieldValidationResult {
+  isValid: boolean;
+  error?: ValidationError;
+  validity: FieldValidity;
+}
+
+// Типы событий для live-валидации
+export type ValidationEventType = "change" | "blur" | "submit";
+
+// Глобальное расширение для хранения validity объекта в DOM элементах
+declare global {
+  interface HTMLElement {
+    formGuard?: FieldValidity; // Позволяет прикреплять объект валидности к элементам
   }
-  
-  // Тип конструктора для создания new FormGuard(HTMLFormElement)
-  export interface FormGuardConstructor {
-    new (form: HTMLFormElement, config?: FormGuardConfig): IFormGuard;
-  }
-  
-  //  ТИПЫ ДЛЯ DOM ЭЛЕМЕНТОВ
-  
-  // Все поддерживаемые элементы формы
-  export type FormFieldElement =
-    | HTMLInputElement
-    | HTMLSelectElement
-    | HTMLTextAreaElement;
-  
-  //  ВСПОМОГАТЕЛЬНЫЕ ТИПЫ
-  
-  // Результат валидации одного поля
-  export interface SingleFieldValidationResult {
-    isValid: boolean;
-    error?: ValidationError;
-    validity: FieldValidity;
-  }
-  
-  // Типы событий для live-валидации
-  export type ValidationEventType = "change" | "blur" | "submit";
-  
-  // Глобальное расширение для хранения validity объекта в DOM элементах
-  declare global {
-    interface HTMLElement {
-      formGuard?: FieldValidity; // Позволяет прикреплять объект валидности к элементам
-    }
-  }
+}
+
+// Тип для элемента с расширенными свойствами
+export interface ExtendedHTMLElement extends HTMLElement {
+  formGuard?: FieldValidity;
+  type?: string;
+  name?: string;
+}

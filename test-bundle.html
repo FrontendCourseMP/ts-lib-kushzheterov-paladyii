@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FormGuard Bundle Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .form-group {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input.error {
+            border-color: #e74c3c;
+            background-color: #ffe6e6;
+        }
+        input.success {
+            border-color: #2ecc71;
+            background-color: #e6ffe6;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 5px;
+            display: block;
+        }
+        button {
+            padding: 12px 24px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .valid {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .invalid {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <h1>✅ FormGuard Bundle Test</h1>
+    <p>Testing the bundled version (20KB) of FormGuard library</p>
+    
+    <form id="testForm" novalidate>
+        <div class="form-group">
+            <label for="email">Email Address *</label>
+            <input type="email" name="email" id="email" placeholder="test@example.com" autocomplete="email">
+            <div class="error-message" data-error-for="email"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password * (min 6 characters)</label>
+            <input type="password" name="password" id="password" placeholder="Enter password" autocomplete="current-password">
+            <div class="error-message" data-error-for="password"></div>
+        </div>
+        
+        <div class="form-group">
+            <label for="age">Age (18-100)</label>
+            <input type="number" name="age" id="age" placeholder="Enter your age" min="18" max="100">
+            <div class="error-message" data-error-for="age"></div>
+        </div>
+        
+        <button type="submit">Validate Form</button>
+        <button type="button" id="clearBtn">Clear All Errors</button>
+        <button type="button" id="testValid">Test Valid Data</button>
+        <button type="button" id="testInvalid">Test Invalid Data</button>
+    </form>
+    
+    <div id="result"></div>
+    
+    <div id="debug" style="margin-top: 30px; padding: 15px; background: #2c3e50; color: white; border-radius: 5px;">
+        <h3 style="margin-top: 0; color: white;">Console Output:</h3>
+        <pre id="debug-log" style="background: #34495e; padding: 10px; border-radius: 3px; overflow: auto; max-height: 200px;"></pre>
+    </div>
+
+    <script type="module">
+        const debugLog = document.getElementById('debug-log');
+        
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : '📝';
+            const entry = `${prefix} [${time}] ${message}`;
+            console.log(entry);
+            debugLog.textContent = entry + '\n' + debugLog.textContent;
+        }
+        
+        log('🚀 Starting FormGuard bundle test...');
+        log(`📦 Bundle file: form-guard.js (${'20492'.toLocaleString()} bytes)`);
+        
+        // Импортируем библиотеку
+        import('./dist/form-guard.js')
+            .then(module => {
+                log('✅ Bundle imported successfully!', 'success');
+                
+                const FormGuard = module.default;
+                if (!FormGuard) {
+                    throw new Error('No default export in module');
+                }
+                
+                log(`📦 FormGuard class: ${typeof FormGuard}`, 'success');
+                log(`🔍 Module exports: ${Object.keys(module).join(', ')}`);
+                
+                // Создаем валидатор
+                const form = document.getElementById('testForm');
+                const validator = new FormGuard(form, {
+                    validateOnChange: true,
+                    validateOnBlur: true,
+                    errorClass: 'error',
+                    successClass: 'success',
+                    errorContainerAttribute: 'data-error-for'
+                });
+                
+                log('✅ Validator instance created', 'success');
+                
+                // Добавляем валидацию полей
+                validator
+                    .addField('email', [
+                        { rule: 'required', errorMessage: 'Email address is required' },
+                        { rule: 'email', errorMessage: 'Please enter a valid email address' }
+                    ])
+                    .addField('password', [
+                        { rule: 'required', errorMessage: 'Password is required' },
+                        { rule: 'minLength', value: 6, errorMessage: 'Password must be at least 6 characters long' }
+                    ])
+                    .addField('age', [
+                        { rule: 'min', value: 18, errorMessage: 'You must be at least 18 years old' },
+                        { rule: 'max', value: 100, errorMessage: 'Age must be 100 or less' }
+                    ]);
+                
+                log('✅ Validation rules added for email, password, and age fields', 'success');
+                
+                const resultDiv = document.getElementById('result');
+                const clearBtn = document.getElementById('clearBtn');
+                const testValidBtn = document.getElementById('testValid');
+                const testInvalidBtn = document.getElementById('testInvalid');
+                
+                // Обработчик submit формы
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    log('📝 Form submitted, running validation...');
+                    
+                    const startTime = performance.now();
+                    const result = validator.validate();
+                    const endTime = performance.now();
+                    
+                    log(`⏱️ Validation took ${(endTime - startTime).toFixed(2)}ms`);
+                    log(`📊 Result: ${result.isValid ? 'VALID' : 'INVALID'} (${result.errors.length} errors)`);
+                    
+                    if (result.isValid) {
+                        resultDiv.className = 'valid';
+                        resultDiv.innerHTML = `
+                            <h3>✅ Form is Valid!</h3>
+                            <p>All validation rules passed successfully.</p>
+                            <p><strong>Form Data:</strong></p>
+                            <pre style="background: white; padding: 10px; border-radius: 3px;">${JSON.stringify({
+                                email: form.email.value,
+                                password: '••••••',
+                                age: form.age.value
+                            }, null, 2)}</pre>
+                        `;
+                    } else {
+                        resultDiv.className = 'invalid';
+                        resultDiv.innerHTML = `
+                            <h3>❌ Validation Failed</h3>
+                            <p>Found ${result.errors.length} error(s):</p>
+                            <ul>
+                                ${result.errors.map(err => `<li><strong>${err.field}:</strong> ${err.message}</li>`).join('')}
+                            </ul>
+                        `;
+                    }
+                });
+                
+                // Кнопка очистки ошибок
+                clearBtn.addEventListener('click', () => {
+                    validator.clearErrors();
+                    resultDiv.innerHTML = '';
+                    resultDiv.className = '';
+                    log('🧹 All errors cleared');
+                });
+                
+                // Тест с валидными данными
+                testValidBtn.addEventListener('click', () => {
+                    form.email.value = 'test@example.com';
+                    form.password.value = 'password123';
+                    form.age.value = '25';
+                    log('🔧 Test: Filled form with valid data');
+                    form.dispatchEvent(new Event('submit'));
+                });
+                
+                // Тест с невалидными данными
+                testInvalidBtn.addEventListener('click', () => {
+                    form.email.value = 'invalid-email';
+                    form.password.value = '123';
+                    form.age.value = '15';
+                    log('🔧 Test: Filled form with invalid data');
+                    form.dispatchEvent(new Event('submit'));
+                });
+                
+                // Быстрый тест при загрузке
+                log('🔍 Running quick validation test...');
+                const testResult = validator.validate();
+                log(`Quick test: ${testResult.isValid ? 'PASS' : 'FAIL'} (${testResult.errors.length} errors)`);
+                
+                // Показываем методы валидатора
+                log(`🔧 Available methods: validate(), clearErrors(), addField(), getFieldValidity()`);
+                
+            })
+            .catch(error => {
+                log(`❌ Failed to import library: ${error.message}`, 'error');
+                console.error('Full error:', error);
+                
+                document.getElementById('result').innerHTML = `
+                    <div class="invalid">
+                        <h3>❌ Library Import Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p>Check the browser console for more details.</p>
+                        <p>Make sure:</p>
+                        <ul>
+                            <li>You ran <code>npm run build</code></li>
+                            <li><code>dist/form-guard.js</code> exists</li>
+                            <li>You're using a modern browser that supports ES modules</li>
+                        </ul>
+                    </div>
+                `;
+            });
+    </script>
+</body>
+</html>

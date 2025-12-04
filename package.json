@@ -1,25 +1,24 @@
 {
-  "name": "ts-val",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "name": "form-guard",
+  "version": "1.0.0",
+  "description": "Form validation library with TypeScript support",
+  "main": "dist/form-guard.js",
+  "types": "dist/form-guard.d.ts",
+  "files": ["dist"],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test": "vitest",
-    "lint": "eslint",
-    "format": "prettier . --check"
+    "build": "npm run build:bundle && npm run build:types",
+    "build:bundle": "npx esbuild src/index.ts --bundle --outfile=dist/form-guard.js --format=esm --target=es2020",
+    "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist",
+    "dev": "npx esbuild src/index.ts --bundle --outfile=dist/form-guard.js --format=esm --target=es2020 --watch",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
+    "serve": "npx serve ."
   },
+  "keywords": ["form", "validation", "typescript", "validator"],
+  "author": "Your Name",
+  "license": "MIT",
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "eslint": "^9.39.1",
-    "eslint-config-prettier": "^10.1.8",
-    "globals": "^16.5.0",
-    "prettier": "3.6.2",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.47.0",
-    "vite": "^7.2.2",
-    "vitest": "^4.0.10"
+    "typescript": "^5.0.0",
+    "esbuild": "^0.27.1"
   }
 }
