@@ -80,7 +80,7 @@ export interface FormGuardConfig {
   errorContainerAttribute?: string;
   validateOnChange?: boolean;
   validateOnBlur?: boolean;
-  customMessages?: Partial<AttributeMessages>; // Исправлено: Partial
+  customMessages?: Partial<AttributeMessages>;
 }
 
 export interface AttributeMessages {
@@ -92,7 +92,7 @@ export interface AttributeMessages {
   pattern?: string;
   email?: string;
   url?: string;
-  [key: string]: string | undefined; // Исправлено
+  [key: string]: string | undefined; 
 }
 
 export interface FieldDescriptor {

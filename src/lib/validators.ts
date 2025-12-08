@@ -1,3 +1,19 @@
+/**
+ * Функции валидации для FormGuard
+ *
+ * Этот модуль содержит все встроенные валидаторы для различных типов проверок:
+ * - Обязательные поля (required)
+ * - Форматы данных (email, url, phone, pattern)
+ * - Ограничения длины (minLength, maxLength)
+ * - Числовые ограничения (min, max)
+ * - Специализированные валидаторы (numeric, integer, alphanumeric)
+ * - Валидаторы массивов (arrayMin, arrayMax)
+ * - Сравнение полей (equalTo)
+ *
+ * Все валидаторы возвращают true для успешной валидации и false для ошибки.
+ * Пустые значения (null, undefined, "") обычно считаются валидными.
+ */
+
 import type { ValidationRule, ValidatorFunction } from "../types/types";
 
 // required - работает с разными типами полей

@@ -4,7 +4,9 @@
   "description": "Form validation library with TypeScript support",
   "main": "dist/form-guard.js",
   "types": "dist/form-guard.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "npm run build:bundle && npm run build:types",
     "build:bundle": "npx esbuild src/index.ts --bundle --outfile=dist/form-guard.js --format=esm --target=es2020",
@@ -12,13 +14,22 @@
     "dev": "npx esbuild src/index.ts --bundle --outfile=dist/form-guard.js --format=esm --target=es2020 --watch",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "serve": "npx serve ."
+    "serve": "npx serve .",
+    "test": "vitest"
   },
-  "keywords": ["form", "validation", "typescript", "validator"],
+  "keywords": [
+    "form",
+    "validation",
+    "typescript",
+    "validator"
+  ],
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
+    "@types/jsdom": "^27.0.0",
+    "esbuild": "^0.27.1",
+    "jsdom": "^27.2.0",
     "typescript": "^5.0.0",
-    "esbuild": "^0.27.1"
+    "vitest": "^4.0.15"
   }
 }

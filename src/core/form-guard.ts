@@ -1,3 +1,19 @@
+/**
+ * FormGuard - Основной класс библиотеки валидации форм
+ *
+ * Этот класс предоставляет комплексное решение для валидации HTML форм,
+ * включая поддержку различных типов полей, кастомных валидаторов,
+ * автоматическую валидацию и отображение ошибок.
+ *
+ * Основные возможности:
+ * - Валидация полей по заданным правилам
+ * - Синхронизация с HTML5 атрибутами валидации
+ * - Отображение ошибок в DOM
+ * - Живая валидация при вводе
+ * - Поддержка кастомных валидаторов
+ * - TypeScript поддержка
+ */
+
 import type {
   FieldConfig,
   ValidationRule,
@@ -8,7 +24,7 @@ import type {
   IFormGuard,
   ExtendedHTMLElement,
   AttributeMessages,
-  ValidatorFunction, // Добавлен импорт
+  ValidatorFunction,
 } from "../types/types";
 import { validateRule, validatorsRegistry } from "../lib/validators";
 import {
@@ -21,14 +37,28 @@ import {
   checkRuleConflicts,
 } from "../lib/utils";
 
+/**
+ * Основной класс FormGuard для валидации форм
+ * Реализует интерфейс IFormGuard и предоставляет все методы для работы с валидацией
+ */
 export default class FormGuard implements IFormGuard {
+  // HTML форма для валидации
   private form: HTMLFormElement;
+
+  // Карта полей формы с их конфигурациями валидации
   private fields: Map<string, FieldConfig> = new Map();
+
+  // Конфигурация FormGuard с значениями по умолчанию
   private config: Required<FormGuardConfig>;
+
+  // Пользовательские сообщения об ошибках для HTML атрибутов
   private attributeMessages: AttributeMessages;
+
+  // Карта обработчиков событий для возможности их удаления при destroy
   private eventListeners: Map<string, EventListenerOrEventListenerObject> =
     new Map();
 
+  // Стандартные сообщения об ошибках для различных правил валидации
   private defaultErrorMessages: Record<string, string> = {
     required: "Это поле обязательно для заполнения",
     email: "Введите корректный email адрес",
@@ -42,6 +72,12 @@ export default class FormGuard implements IFormGuard {
     custom: "Некорректное значение",
   };
 
+  /**
+   * Конструктор FormGuard
+   * @param form - HTML форма для валидации
+   * @param config - конфигурация валидации (опционально)
+   * @param attributeMessages - пользовательские сообщения для HTML атрибутов (опционально)
+   */
   constructor(
     form: HTMLFormElement,
     config: FormGuardConfig = {},
@@ -102,7 +138,7 @@ private mergeCustomMessages(): void {
       this.form.addEventListener("input", inputHandler);
       this.eventListeners.set("input", inputHandler);
 
-      // Обработчик для select, checkbox, radio (change event)
+
       const changeHandler = (event: Event) => {
         const target = event.target as HTMLInputElement;
         if (target && target.name && this.fields.has(target.name)) {
@@ -115,7 +151,6 @@ private mergeCustomMessages(): void {
 
     if (this.config.validateOnBlur) {
       const blurHandler = (event: Event) => {
-        // Исправлено: Event вместо FocusEvent
         const target = event.target as HTMLInputElement;
         if (target && target.name && this.fields.has(target.name)) {
           this.validateField(target.name, true);
@@ -126,6 +161,13 @@ private mergeCustomMessages(): void {
     }
   }
 
+  /**
+   * Добавляет поле для валидации
+   * @param fieldName - имя поля в форме
+   * @param rules - массив правил валидации
+   * @param options - дополнительные опции (подавление предупреждений)
+   * @returns this - для цепочки вызовов
+   */
   addField(
     fieldName: string,
     rules: ValidationRule[],
@@ -275,6 +317,12 @@ private mergeCustomMessages(): void {
     return undefined;
   }
 
+  /**
+   * Валидирует отдельное поле формы
+   * @param fieldName - имя поля для валидации
+   * @param showUI - показывать ли ошибки в интерфейсе
+   * @returns boolean - true если поле валидно
+   */
   validateField(fieldName: string, showUI: boolean = false): boolean {
     const fieldConfig = this.fields.get(fieldName);
     if (!fieldConfig) {
@@ -322,6 +370,10 @@ private mergeCustomMessages(): void {
     return isValid;
   }
 
+  /**
+   * Выполняет валидацию всей формы
+   * @returns ValidationResult - результат валидации со списком ошибок
+   */
   validate(): ValidationResult {
     const errors: ValidationError[] = [];
 
@@ -360,11 +412,15 @@ private mergeCustomMessages(): void {
     };
   }
 
+  /**
+   * Устанавливает обработчик отправки формы с валидацией
+   * @param callback - функция обратного вызова с результатом валидации
+   * @returns this - для цепочки вызовов
+   */
   onSubmit(
     callback: (result: ValidationResult, event?: SubmitEvent) => void
   ): this {
     const submitHandler = (event: Event) => {
-      // Исправлено: Event вместо SubmitEvent
       event.preventDefault();
       const result = this.validate();
       callback(result, event as SubmitEvent);
@@ -377,7 +433,6 @@ private mergeCustomMessages(): void {
 
   enableAutoSubmit(): this {
     const submitHandler = (event: Event) => {
-      // Исправлено: Event вместо SubmitEvent
       const result = this.validate();
       if (!result.isValid) {
         event.preventDefault();
@@ -392,6 +447,11 @@ private mergeCustomMessages(): void {
     return this;
   }
 
+  /**
+   * Получает состояние валидности поля
+   * @param fieldName - имя поля
+   * @returns FieldValidity - объект с состоянием валидности поля
+   */
   getFieldValidity(fieldName: string): FieldValidity {
     const fieldElement = this.form.elements.namedItem(
       fieldName
@@ -478,6 +538,12 @@ private mergeCustomMessages(): void {
     return validity;
   }
 
+  /**
+   * Добавляет кастомный валидатор
+   * @param ruleName - имя нового правила валидации
+   * @param validator - функция валидации
+   * @returns this - для цепочки вызовов
+   */
   addCustomValidator(ruleName: string, validator: ValidatorFunction): this {
     if (validatorsRegistry[ruleName] && !this.config.suppressAllWarnings) {
       console.warn(`FormGuard: переопределение валидатора "${ruleName}"`);
@@ -535,6 +601,10 @@ private mergeCustomMessages(): void {
     });
   }
 
+  /**
+   * Уничтожает экземпляр FormGuard и очищает все обработчики событий
+   * Вызывайте этот метод при удалении формы или компонента
+   */
   destroy(): void {
     this.clearErrors();
     this.fields.clear();
