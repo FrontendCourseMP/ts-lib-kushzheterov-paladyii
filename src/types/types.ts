@@ -1,10 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-// FORM GUARD
+// FORM GUARD - ТИПЫ
 
-//  ЛИТЕРАЛЫ И БАЗОВЫЕ ТИПЫ
-
-// Поддерживаемые типы полей формы
+// ЛИТЕРАЛЫ И БАЗОВЫЕ ТИПЫ
 export type FieldType =
   | "string"
   | "number"
@@ -14,7 +12,6 @@ export type FieldType =
   | "tel"
   | "url";
 
-// Конкретные названия правил валидации для защиты от опечаток
 export type ValidationRuleName =
   | "required"
   | "email"
@@ -24,161 +21,151 @@ export type ValidationRuleName =
   | "max"
   | "pattern"
   | "url"
-  | "phone";
+  | "phone"
+  | "custom";
 
-//  ОСНОВНЫЕ ИНТЕРФЕЙСЫ ВАЛИДАЦИИ
-
+// ОСНОВНЫЕ ИНТЕРФЕЙСЫ ВАЛИДАЦИИ
 export interface ValidationRule {
-  rule: ValidationRuleName; // Название правила: 'required', 'email', 'minLength' - теперь только конкретные значения
+  rule: ValidationRuleName;
   value?: any;
   errorMessage?: string;
+  customValidator?: (value: any, field?: HTMLInputElement) => boolean;
 }
 
 export interface FieldConfig {
   name: string;
   rules: ValidationRule[];
   customErrorMessage?: string;
-  suppressWarnings?: boolean; // Отключить предупреждения для этого поля
+  suppressWarnings?: boolean;
 }
 
 export interface ValidationError {
   field: string;
   message: string;
-  rule: string; // Какое правило нарушено: 'required', 'email'
+  rule: string;
 }
 
-// Чтобы знать прошла ли форма валидацию и если нет - то какие ошибки
 export interface ValidationResult {
   isValid: boolean;
   errors: ValidationError[];
 }
 
-// Это аналог стандартного ValidityState из браузера, но расширенный
 export interface FieldValidity {
   valid: boolean;
-
-  // СТАНДАРТНЫЕ СВОЙСТВА из Constraint Validation API
-  valueMissing?: boolean; // required поле не заполнено
-  typeMismatch?: boolean; // email без @, url без http://
+  valueMissing?: boolean;
+  typeMismatch?: boolean;
   tooShort?: boolean;
   tooLong?: boolean;
-  patternMismatch?: boolean; // не соответствует pattern="..."
-  rangeUnderflow?: boolean; // число меньше min
-  rangeOverflow?: boolean; // число больше max
-  stepMismatch?: boolean; // не соответствует step
-  badInput?: boolean; // некорректный ввод (буквы в number)
-  customError?: boolean; // установлена кастомная ошибка
-
-  // КАСТОМНЫЕ СВОЙСТВА для наших правил
-  emailMismatch?: boolean; // нарушено правило email
-  minLengthMismatch?: boolean; // нарушено minLength
-  maxLengthMismatch?: boolean; // нарушено maxLength
-  minValueMismatch?: boolean; // нарушено min
-  maxValueMismatch?: boolean; // нарушено max
-
-  // ДЛЯ РАСШИРЕНИЯ: любые другие правила
+  patternMismatch?: boolean;
+  rangeUnderflow?: boolean;
+  rangeOverflow?: boolean;
+  stepMismatch?: boolean;
+  badInput?: boolean;
+  customError?: boolean;
+  emailMismatch?: boolean;
+  minLengthMismatch?: boolean;
+  maxLengthMismatch?: boolean;
+  minValueMismatch?: boolean;
+  maxValueMismatch?: boolean;
+  phoneMismatch?: boolean;
+  urlMismatch?: boolean;
+  patternMismatchCustom?: boolean;
   [key: string]: boolean | undefined;
 }
 
-// Глобальные настройки поведения валидатора
 export interface FormGuardConfig {
-  suppressAllWarnings?: boolean; // ОТВЕТ на требование "опцию для подавления"
+  suppressAllWarnings?: boolean;
   errorClass?: string;
   successClass?: string;
-  errorContainerAttribute?: string; // Атрибут для контейнеров ошибок
-  validateOnChange?: boolean; // Валидировать при вводе
-  validateOnBlur?: boolean; // Валидировать при потере фокуса
+  errorContainerAttribute?: string;
+  validateOnChange?: boolean;
+  validateOnBlur?: boolean;
+  customMessages?: Partial<AttributeMessages>; // Исправлено: Partial
 }
 
-// Хранит ссылки на DOM элементы и состояние валидации
+export interface AttributeMessages {
+  required?: string;
+  minlength?: string;
+  maxlength?: string;
+  min?: string;
+  max?: string;
+  pattern?: string;
+  email?: string;
+  url?: string;
+  [key: string]: string | undefined; // Исправлено
+}
+
 export interface FieldDescriptor {
   element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
   config: FieldConfig;
-  lastValue?: any; // Для отслеживания изменений
-  isValid?: boolean; // Текущий статус
+  lastValue?: any;
+  isValid?: boolean;
 }
 
-//  ТИПЫ ДЛЯ ФУНКЦИЙ
-
-// Тип для функций валидации - каждая проверяет одно правило
+// ТИПЫ ДЛЯ ФУНКЦИЙ
 export type ValidatorFunction = (
   value: any,
   ruleValue?: any,
   field?: HTMLInputElement
 ) => boolean;
 
-// Функция для создания кастомных сообщений об ошибках
 export type ErrorMessageResolver = (
   rule: ValidationRule,
   fieldName: string
 ) => string;
 
-//  ТИПЫ ДЛЯ ОБЪЕКТОВ
-
-// Объект со стандартными сообщениями об ошибках для разных правил
+// ТИПЫ ДЛЯ ОБЪЕКТОВ
 export type ErrorMessages = {
   [rule in ValidationRuleName]?: string;
 };
 
-// Реестр всех доступных валидаторов
 export type ValidatorsRegistry = {
-  [rule in ValidationRuleName]?: ValidatorFunction;
+  [rule: string]: ValidatorFunction;
 };
 
-//  ТИПЫ ДЛЯ КЛАССА FORM GUARD
-
-// Интерфейс главного класса валидатора - описывает все публичные методы
+// ТИПЫ ДЛЯ КЛАССА FORM GUARD
 export interface IFormGuard {
-  // ОСНОВНЫЕ МЕТОДЫ ИЗ ЗАДАНИЯ
   addField(fieldName: string, rules: ValidationRule[], options?: { suppressWarnings?: boolean }): IFormGuard;
   validate(): ValidationResult;
   suppressWarnings(suppress?: boolean): IFormGuard;
-
-  // ДОПОЛНИТЕЛЬНЫЕ МЕТОДЫ
-  getFieldValidity(fieldName: string): FieldValidity; // ОТВЕТ на вопрос "validity объект как достать"
+  getFieldValidity(fieldName: string): FieldValidity;
   clearErrors(): void;
   destroy(): void;
-  
-  // НОВЫЕ МЕТОДЫ для привязки к событиям
   onSubmit(callback: (result: ValidationResult, event?: SubmitEvent) => void): IFormGuard;
   enableAutoSubmit(): IFormGuard;
+  addCustomValidator(ruleName: string, validator: ValidatorFunction): IFormGuard;
+  validateField(fieldName: string, showUI?: boolean): boolean;
 }
 
-// Тип конструктора для создания new FormGuard(HTMLFormElement)
 export interface FormGuardConstructor {
   new (form: HTMLFormElement, config?: FormGuardConfig): IFormGuard;
 }
 
-//  ТИПЫ ДЛЯ DOM ЭЛЕМЕНТОВ
-
-// Все поддерживаемые элементы формы
+// ТИПЫ ДЛЯ DOM ЭЛЕМЕНТОВ
 export type FormFieldElement =
   | HTMLInputElement
   | HTMLSelectElement
   | HTMLTextAreaElement;
 
-//  ВСПОМОГАТЕЛЬНЫЕ ТИПЫ
-
-// Результат валидации одного поля
 export interface SingleFieldValidationResult {
   isValid: boolean;
   error?: ValidationError;
   validity: FieldValidity;
 }
 
-// Типы событий для live-валидации
 export type ValidationEventType = "change" | "blur" | "submit";
 
-// Глобальное расширение для хранения validity объекта в DOM элементах
 declare global {
   interface HTMLElement {
-    formGuard?: FieldValidity; // Позволяет прикреплять объект валидности к элементам
+    formGuard?: FieldValidity;
+    _formGuardListeners?: Map<string, EventListenerOrEventListenerObject>;
   }
 }
 
-// Тип для элемента с расширенными свойствами
 export interface ExtendedHTMLElement extends HTMLElement {
   formGuard?: FieldValidity;
+  _formGuardListeners?: Map<string, EventListenerOrEventListenerObject>;
   type?: string;
   name?: string;
+  value?: string;
 }

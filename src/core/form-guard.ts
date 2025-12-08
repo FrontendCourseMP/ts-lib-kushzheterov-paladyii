@@ -1,189 +1,248 @@
-import type { 
-  FieldConfig, 
-  ValidationRule, 
-  ValidationResult, 
+import type {
+  FieldConfig,
+  ValidationRule,
+  ValidationResult,
   ValidationError,
   FieldValidity,
   FormGuardConfig,
   IFormGuard,
-  ExtendedHTMLElement
-} from '../types/types';
-import { validateRule } from '../lib/validators';
-import { 
-  getFieldValue, 
-  validateFormStructure, 
-  findErrorContainer, 
-  showError, 
+  ExtendedHTMLElement,
+  AttributeMessages,
+  ValidatorFunction, // Добавлен импорт
+} from "../types/types";
+import { validateRule, validatorsRegistry } from "../lib/validators";
+import {
+  getFieldValue,
+  validateFormStructure,
+  findErrorContainer,
+  showError,
   hideError,
   createErrorMessage,
-  checkRuleConflicts
-} from '../lib/utils';
+  checkRuleConflicts,
+} from "../lib/utils";
 
-/**
- * ОСНОВНОЙ КЛАСС FORM GUARD
- * Реализует всю логику валидации форм
- */
 export default class FormGuard implements IFormGuard {
   private form: HTMLFormElement;
   private fields: Map<string, FieldConfig> = new Map();
   private config: Required<FormGuardConfig>;
-  
-  // Стандартные сообщения об ошибках
+  private attributeMessages: AttributeMessages;
+  private eventListeners: Map<string, EventListenerOrEventListenerObject> =
+    new Map();
+
   private defaultErrorMessages: Record<string, string> = {
-    required: 'Это поле обязательно для заполнения',
-    email: 'Введите корректный email адрес',
-    minLength: 'Минимальная длина: {value} символов',
-    maxLength: 'Максимальная длина: {value} символов',
-    min: 'Минимальное значение: {value}',
-    max: 'Максимальное значение: {value}',
-    pattern: 'Неверный формат',
-    url: 'Введите корректный URL',
-    phone: 'Введите корректный номер телефона'
+    required: "Это поле обязательно для заполнения",
+    email: "Введите корректный email адрес",
+    minLength: "Длина должна быть не менее {value} символов",
+    maxLength: "Длина должна быть не более {value} символов",
+    min: "Значение должно быть не менее {value}",
+    max: "Значение должно быть не более {value}",
+    pattern: "Неверный формат",
+    url: "Введите корректный URL",
+    phone: "Введите корректный номер телефона",
+    custom: "Некорректное значение",
   };
 
-  /**
-   * КОНСТРУКТОР - создает новый валидатор для формы
-   * @param form - HTML форма для валидации
-   * @param config - настройки валидатора
-   */
-  constructor(form: HTMLFormElement, config: FormGuardConfig = {}) {
-    // Проверяем что передан именно form элемент
+  constructor(
+    form: HTMLFormElement,
+    config: FormGuardConfig = {},
+    attributeMessages?: AttributeMessages
+  ) {
     if (!(form instanceof HTMLFormElement)) {
-      throw new Error('FormGuard: переданный элемент не является формой');
+      throw new Error("FormGuard: переданный элемент не является формой");
     }
 
     this.form = form;
-    
-    // Устанавливаем настройки по умолчанию
+    this.attributeMessages = attributeMessages || {};
+
     this.config = {
       suppressAllWarnings: false,
-      errorClass: 'error',
-      successClass: 'success',
-      errorContainerAttribute: 'data-error-for',
+      errorClass: "error",
+      successClass: "success",
+      errorContainerAttribute: "data-error-for",
       validateOnChange: false,
       validateOnBlur: false,
-      ...config
+      customMessages: {},
+      ...config,
     };
-    
-    // Проверяем структуру формы при инициализации
+
+    this.mergeCustomMessages();
     validateFormStructure(this.form, this.config.errorContainerAttribute);
-    
-    // Настраиваем live-валидацию если включено
     this.setupLiveValidation();
   }
 
-  /**
-   * НАСТРОЙКА LIVE-ВАЛИДАЦИИ (onChange, onBlur)
-   */
+private mergeCustomMessages(): void {
+  if (this.config.customMessages) {
+    // Преобразуем Partial<AttributeMessages> в Record<string, string>
+    const customMessages = this.config.customMessages as Record<string, string>;
+    
+    // Удаляем undefined значения
+    const filteredMessages: Record<string, string> = {};
+    Object.entries(customMessages).forEach(([key, value]) => {
+      if (value !== undefined) {
+        filteredMessages[key] = value;
+      }
+    });
+    
+    this.defaultErrorMessages = {
+      ...this.defaultErrorMessages,
+      ...filteredMessages
+    };
+  }
+}
+
   private setupLiveValidation(): void {
-    if (!this.config.validateOnChange && !this.config.validateOnBlur) {
-      return;
-    }
-
-    // Валидация при изменении значения
     if (this.config.validateOnChange) {
-      this.form.addEventListener('input', (event) => {
-        const target = event.target as HTMLInputElement;
-        if (target && target.name && this.fields.has(target.name)) {
-          this.validateField(target.name);
-        }
-      });
-    }
-
-    // Валидация при потере фокуса
-    if (this.config.validateOnBlur) {
-      this.form.addEventListener('blur', (event) => {
+      // Обработчик для текстовых полей (input event)
+      const inputHandler = (event: Event) => {
         const target = event.target as HTMLInputElement;
         if (target && target.name && this.fields.has(target.name)) {
           this.validateField(target.name, true);
         }
-      }, true);
+      };
+      this.form.addEventListener("input", inputHandler);
+      this.eventListeners.set("input", inputHandler);
+
+      // Обработчик для select, checkbox, radio (change event)
+      const changeHandler = (event: Event) => {
+        const target = event.target as HTMLInputElement;
+        if (target && target.name && this.fields.has(target.name)) {
+          this.validateField(target.name, true);
+        }
+      };
+      this.form.addEventListener("change", changeHandler);
+      this.eventListeners.set("change", changeHandler);
+    }
+
+    if (this.config.validateOnBlur) {
+      const blurHandler = (event: Event) => {
+        // Исправлено: Event вместо FocusEvent
+        const target = event.target as HTMLInputElement;
+        if (target && target.name && this.fields.has(target.name)) {
+          this.validateField(target.name, true);
+        }
+      };
+      this.form.addEventListener("blur", blurHandler, true);
+      this.eventListeners.set("blur", blurHandler);
     }
   }
 
-  /**
-   * ДОБАВЛЕНИЕ ПОЛЯ ДЛЯ ВАЛИДАЦИИ
-   * @param fieldName - имя поля формы
-   * @param rules - массив правил валидации
-   * @param options - дополнительные опции (например, подавление предупреждений)
-   * @returns this для чейнинга
-   */
-  addField(fieldName: string, rules: ValidationRule[], options?: { suppressWarnings?: boolean }): this {
+  addField(
+    fieldName: string,
+    rules: ValidationRule[],
+    options?: { suppressWarnings?: boolean }
+  ): this {
     const fieldElement = this.form.elements.namedItem(fieldName);
-    
-    // Проверяем что поле существует в форме
+
     if (!fieldElement) {
       throw new Error(`FormGuard: поле "${fieldName}" не найдено в форме`);
     }
 
-    // Проверяем конфликты между HTML и JS правилами (если не подавлены)
-    const shouldSuppress = options?.suppressWarnings || this.config.suppressAllWarnings;
+    const shouldSuppress =
+      options?.suppressWarnings || this.config.suppressAllWarnings;
     if (!shouldSuppress) {
       checkRuleConflicts(fieldElement as ExtendedHTMLElement, rules);
     }
 
-    // Синхронизируем JS правила с HTML атрибутами
     const synchronizedRules = this.syncWithHTMLAttributes(
-      fieldElement as ExtendedHTMLElement, 
+      fieldElement as ExtendedHTMLElement,
       rules
     );
 
     const fieldConfig: FieldConfig = {
       name: fieldName,
-      rules: synchronizedRules
+      rules: synchronizedRules,
+      suppressWarnings: options?.suppressWarnings,
     };
 
     this.fields.set(fieldName, fieldConfig);
+
     return this;
   }
 
-  /**
-   * СИНХРОНИЗАЦИЯ JS ПРАВИЛ С HTML АТРИБУТАМИ
-   * Автоматически добавляет правила из HTML атрибутов
-   */
   private syncWithHTMLAttributes(
-    field: ExtendedHTMLElement, 
+    field: ExtendedHTMLElement,
     jsRules: ValidationRule[]
   ): ValidationRule[] {
     const htmlRules: ValidationRule[] = [];
     const mergedRules = [...jsRules];
 
-    // Собираем правила из HTML атрибутов
-    if (field.hasAttribute('required')) {
-      htmlRules.push({ rule: 'required' });
+    if (!(field instanceof HTMLElement)) {
+      return mergedRules;
     }
 
-    const minLength = field.getAttribute('minlength');
+    if (field.hasAttribute("required")) {
+      htmlRules.push({
+        rule: "required",
+        errorMessage: this.getAttributeErrorMessage("required", field),
+      });
+    }
+
+    const minLength = field.getAttribute("minlength");
     if (minLength) {
-      // Исправлено: добавлен radix параметр в parseInt
-      htmlRules.push({ rule: 'minLength', value: parseInt(minLength, 10) });
+      htmlRules.push({
+        rule: "minLength",
+        value: parseInt(minLength, 10),
+        errorMessage: this.getAttributeErrorMessage("minlength", field),
+      });
     }
-    
-    const maxLength = field.getAttribute('maxlength');
+
+    const maxLength = field.getAttribute("maxlength");
     if (maxLength) {
-      // Исправлено: добавлен radix параметр в parseInt
-      htmlRules.push({ rule: 'maxLength', value: parseInt(maxLength, 10) });
+      htmlRules.push({
+        rule: "maxLength",
+        value: parseInt(maxLength, 10),
+        errorMessage: this.getAttributeErrorMessage("maxlength", field),
+      });
     }
 
-    const min = field.getAttribute('min');
+    const min = field.getAttribute("min");
     if (min) {
-      htmlRules.push({ rule: 'min', value: parseFloat(min) });
+      htmlRules.push({
+        rule: "min",
+        value: parseFloat(min),
+        errorMessage: this.getAttributeErrorMessage("min", field),
+      });
     }
 
-    const max = field.getAttribute('max');
+    const max = field.getAttribute("max");
     if (max) {
-      htmlRules.push({ rule: 'max', value: parseFloat(max) });
+      htmlRules.push({
+        rule: "max",
+        value: parseFloat(max),
+        errorMessage: this.getAttributeErrorMessage("max", field),
+      });
     }
 
-    const pattern = field.getAttribute('pattern');
+    const pattern = field.getAttribute("pattern");
     if (pattern) {
-      htmlRules.push({ rule: 'pattern', value: pattern });
+      htmlRules.push({
+        rule: "pattern",
+        value: pattern,
+        errorMessage: this.getAttributeErrorMessage("pattern", field),
+      });
     }
 
-    // Объединяем правила (приоритет у JS правил)
+    const type = field.getAttribute("type");
+    if (type === "email") {
+      htmlRules.push({
+        rule: "email",
+        errorMessage: this.getAttributeErrorMessage("email", field),
+      });
+    }
+
+    if (type === "url") {
+      htmlRules.push({
+        rule: "url",
+        errorMessage: this.getAttributeErrorMessage("url", field),
+      });
+    }
+
     const resultRules = [...mergedRules];
-    htmlRules.forEach(htmlRule => {
-      if (!resultRules.find(r => r.rule === htmlRule.rule)) {
+    htmlRules.forEach((htmlRule) => {
+      const existingIndex = resultRules.findIndex(
+        (r) => r.rule === htmlRule.rule
+      );
+      if (existingIndex === -1) {
         resultRules.push(htmlRule);
       }
     });
@@ -191,32 +250,67 @@ export default class FormGuard implements IFormGuard {
     return resultRules;
   }
 
-  /**
-   * ВАЛИДАЦИЯ ОДНОГО ПОЛЯ
-   * @param fieldName - имя поля для валидации
-   * @param showUI - показывать ошибки в интерфейсе
-   */
-  private validateField(fieldName: string, showUI: boolean = false): boolean {
-    const fieldConfig = this.fields.get(fieldName);
-    if (!fieldConfig) return true;
+  private getAttributeErrorMessage(
+    attribute: string,
+    field: ExtendedHTMLElement
+  ): string | undefined {
+    if (this.attributeMessages[attribute]) {
+      return this.attributeMessages[attribute];
+    }
 
-    const fieldElement = this.form.elements.namedItem(fieldName) as HTMLInputElement;
+    if (this.config.customMessages && this.config.customMessages[attribute]) {
+      return this.config.customMessages[attribute];
+    }
+
+    const dataMessage = field.getAttribute(`data-${attribute}-message`);
+    if (dataMessage) {
+      return dataMessage;
+    }
+
+    const title = field.getAttribute("title");
+    if (title) {
+      return title;
+    }
+
+    return undefined;
+  }
+
+  validateField(fieldName: string, showUI: boolean = false): boolean {
+    const fieldConfig = this.fields.get(fieldName);
+    if (!fieldConfig) {
+      if (!this.config.suppressAllWarnings) {
+        console.warn(
+          `FormGuard: поле "${fieldName}" не добавлено для валидации`
+        );
+      }
+      return true;
+    }
+
+    const fieldElement = this.form.elements.namedItem(
+      fieldName
+    ) as HTMLInputElement;
     if (!fieldElement) return true;
 
     const value = getFieldValue(fieldElement);
     let isValid = true;
     let firstErrorRule: ValidationRule | null = null;
 
-    // Проверяем все правила поля
     for (const rule of fieldConfig.rules) {
-      if (!validateRule(fieldElement, value, rule)) {
+      let ruleValid: boolean;
+
+      if (rule.rule === "custom" && rule.customValidator) {
+        ruleValid = rule.customValidator(value, fieldElement);
+      } else {
+        ruleValid = validateRule(fieldElement, value, rule);
+      }
+
+      if (!ruleValid) {
         isValid = false;
         firstErrorRule = rule;
-        break; // Останавливаемся на первой ошибке
+        break;
       }
     }
 
-    // Обновляем UI если нужно
     if (showUI) {
       if (!isValid && firstErrorRule) {
         this.displayFieldError(fieldName, firstErrorRule);
@@ -228,103 +322,91 @@ export default class FormGuard implements IFormGuard {
     return isValid;
   }
 
-  /**
-   * ОСНОВНАЯ ВАЛИДАЦИЯ ВСЕЙ ФОРМЫ
-   * @returns результат валидации с ошибками
-   */
   validate(): ValidationResult {
     const errors: ValidationError[] = [];
 
     this.fields.forEach((config, fieldName) => {
       const fieldValidity = this.getFieldValidity(fieldName);
-      
+
       if (!fieldValidity.valid) {
-        // Находим первое нарушенное правило
-        const violatedRule = config.rules.find(rule => {
-          // Проверяем соответствующий флаг в validity
+        const violatedRule = config.rules.find((rule) => {
           const flagName = `${rule.rule}Mismatch`;
           return fieldValidity[flagName] === true;
         });
 
         if (violatedRule) {
           const errorMessage = createErrorMessage(
-            violatedRule, 
-            fieldName, 
+            violatedRule,
+            fieldName,
             this.defaultErrorMessages
           );
 
           errors.push({
             field: fieldName,
             message: errorMessage,
-            rule: violatedRule.rule
+            rule: violatedRule.rule,
           });
 
-          // Показываем ошибку в UI
           this.displayFieldError(fieldName, violatedRule);
         }
       } else {
-        // Очищаем ошибку если поле валидно
         this.clearFieldError(fieldName);
       }
     });
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
-  /**
-   * ПРИВЯЗКА ВАЛИДАЦИИ К SUBMIT ФОРМЫ
-   * @param callback - функция обратного вызова с результатом валидации
-   * @returns this для чейнинга
-   */
-  onSubmit(callback: (result: ValidationResult, event?: SubmitEvent) => void): this {
-    this.form.addEventListener('submit', (event) => {
+  onSubmit(
+    callback: (result: ValidationResult, event?: SubmitEvent) => void
+  ): this {
+    const submitHandler = (event: Event) => {
+      // Исправлено: Event вместо SubmitEvent
       event.preventDefault();
       const result = this.validate();
-      callback(result, event);
-    });
+      callback(result, event as SubmitEvent);
+    };
+
+    this.form.addEventListener("submit", submitHandler);
+    this.eventListeners.set("submit", submitHandler);
     return this;
   }
 
-  /**
-   * АВТОМАТИЧЕСКАЯ ПРИВЯЗКА К SUBMIT
-   * Блокирует отправку формы при наличии ошибок
-   * @returns this для чейнинга
-   */
   enableAutoSubmit(): this {
-    this.form.addEventListener('submit', (event) => {
+    const submitHandler = (event: Event) => {
+      // Исправлено: Event вместо SubmitEvent
       const result = this.validate();
       if (!result.isValid) {
         event.preventDefault();
+        this.fields.forEach((_, fieldName) => {
+          this.validateField(fieldName, true);
+        });
       }
-    });
+    };
+
+    this.form.addEventListener("submit", submitHandler);
+    this.eventListeners.set("submit-auto", submitHandler);
     return this;
   }
 
-  /**
-   * ПОЛУЧЕНИЕ ОБЪЕКТА ВАЛИДНОСТИ ПОЛЯ
-   * @param fieldName - имя поля
-   * @returns объект с детальной информацией о валидности
-   */
   getFieldValidity(fieldName: string): FieldValidity {
-    const fieldElement = this.form.elements.namedItem(fieldName) as HTMLInputElement;
+    const fieldElement = this.form.elements.namedItem(
+      fieldName
+    ) as HTMLInputElement;
     if (!fieldElement) {
       throw new Error(`FormGuard: поле "${fieldName}" не найдено`);
     }
 
     const fieldConfig = this.fields.get(fieldName);
     const value = getFieldValue(fieldElement);
-    
-    // Используем нативный ValidityState если доступен
-    // Исправлено: убрали any, используем правильный тип
-    const nativeValidity = fieldElement.validity || {} as ValidityState;
-    
-    // Создаем объект валидности
+
+    const nativeValidity = fieldElement.validity || ({} as ValidityState);
+
     const validity: FieldValidity = {
       valid: true,
-      // Копируем нативные свойства
       valueMissing: nativeValidity.valueMissing,
       typeMismatch: nativeValidity.typeMismatch,
       patternMismatch: nativeValidity.patternMismatch,
@@ -334,7 +416,7 @@ export default class FormGuard implements IFormGuard {
       rangeOverflow: nativeValidity.rangeOverflow,
       stepMismatch: nativeValidity.stepMismatch,
       badInput: nativeValidity.badInput,
-      customError: nativeValidity.customError
+      customError: nativeValidity.customError,
     };
 
     if (!fieldConfig) {
@@ -342,119 +424,137 @@ export default class FormGuard implements IFormGuard {
       return validity;
     }
 
-    // Проверяем каждое правило и обновляем соответствующие флаги
     let allValid = true;
-    
+
     for (const rule of fieldConfig.rules) {
-      const isValid = validateRule(fieldElement, value, rule);
+      let isValid: boolean;
+
+      if (rule.rule === "custom" && rule.customValidator) {
+        isValid = rule.customValidator(value, fieldElement);
+      } else {
+        isValid = validateRule(fieldElement, value, rule);
+      }
+
       if (!isValid) {
         allValid = false;
-        
-        // Устанавливаем кастомный флаг для этого правила
+
         const mismatchFlag = `${rule.rule}Mismatch` as keyof FieldValidity;
         validity[mismatchFlag] = true;
-        
-        // Устанавливаем стандартные флаги ValidityState
+
         switch (rule.rule) {
-          case 'required':
+          case "required":
             validity.valueMissing = true;
             break;
-          case 'email':
-          case 'url':
+          case "email":
+          case "url":
             validity.typeMismatch = true;
             break;
-          case 'minLength':
+          case "minLength":
             validity.tooShort = true;
             break;
-          case 'maxLength':
+          case "maxLength":
             validity.tooLong = true;
             break;
-          case 'min':
+          case "min":
             validity.rangeUnderflow = true;
             break;
-          case 'max':
+          case "max":
             validity.rangeOverflow = true;
             break;
-          case 'pattern':
+          case "pattern":
             validity.patternMismatch = true;
+            break;
+          case "phone":
+            validity.customError = true;
             break;
         }
       }
     }
 
     validity.valid = allValid;
-    
-    // Сохраняем объект валидности в поле для быстрого доступа
+
     (fieldElement as ExtendedHTMLElement).formGuard = validity;
-    
+
     return validity;
   }
 
-  /**
-   * ПОКАЗ ОШИБКИ ПОЛЯ В ИНТЕРФЕЙСЕ
-   */
+  addCustomValidator(ruleName: string, validator: ValidatorFunction): this {
+    if (validatorsRegistry[ruleName] && !this.config.suppressAllWarnings) {
+      console.warn(`FormGuard: переопределение валидатора "${ruleName}"`);
+    }
+
+    validatorsRegistry[ruleName] = validator;
+    return this;
+  }
+
   private displayFieldError(fieldName: string, rule: ValidationRule): void {
     const errorContainer = findErrorContainer(
-      fieldName, 
-      this.form, 
+      fieldName,
+      this.form,
       this.config.errorContainerAttribute
     );
-    
-    if (!errorContainer) return;
+
+    if (!errorContainer) {
+      if (!this.config.suppressAllWarnings) {
+        console.warn(
+          `FormGuard: для поля "${fieldName}" не найден контейнер ошибок`
+        );
+      }
+      return;
+    }
 
     const errorMessage = createErrorMessage(
-      rule, 
-      fieldName, 
+      rule,
+      fieldName,
       this.defaultErrorMessages
     );
 
     showError(errorContainer, errorMessage, this.config.errorClass);
   }
 
-  /**
-   * ОЧИСТКА ОШИБКИ ПОЛЯ
-   */
   private clearFieldError(fieldName: string): void {
     const errorContainer = findErrorContainer(
-      fieldName, 
-      this.form, 
+      fieldName,
+      this.form,
       this.config.errorContainerAttribute
     );
-    
+
     if (!errorContainer) return;
 
     hideError(errorContainer, this.config.successClass);
   }
 
-  /**
-   * ОТКЛЮЧЕНИЕ ПРЕДУПРЕЖДЕНИЙ В КОНСОЛИ
-   * @param suppress - отключить предупреждения
-   * @returns this для чейнинга
-   */
   suppressWarnings(suppress: boolean = true): this {
     this.config.suppressAllWarnings = suppress;
     return this;
   }
 
-  /**
-   * ОЧИСТКА ВСЕХ ОШИБОК В ИНТЕРФЕЙСЕ
-   */
   clearErrors(): void {
     this.fields.forEach((_, fieldName) => {
       this.clearFieldError(fieldName);
     });
   }
 
-  /**
-   * УНИЧТОЖЕНИЕ ВАЛИДАТОРА (cleanup)
-   */
   destroy(): void {
     this.clearErrors();
     this.fields.clear();
-    
-    // Удаляем все обработчики событий, добавленные на форму
-    // Это базовый cleanup, в реальной реализации нужно отслеживать добавленные обработчики
-    const newForm = this.form.cloneNode(true) as HTMLFormElement;
-    this.form.parentNode?.replaceChild(newForm, this.form);
+
+    this.eventListeners.forEach((handler, type) => {
+      if (type === "blur") {
+        this.form.removeEventListener("blur", handler, true);
+      } else if (type.startsWith("submit")) {
+        this.form.removeEventListener("submit", handler);
+      } else {
+        this.form.removeEventListener(type, handler);
+      }
+    });
+    this.eventListeners.clear();
+
+    const fields = this.form.querySelectorAll("input, select, textarea");
+    fields.forEach((field) => {
+      const extendedField = field as ExtendedHTMLElement;
+      delete extendedField.formGuard;
+      delete extendedField._formGuardListeners;
+    });
   }
 }

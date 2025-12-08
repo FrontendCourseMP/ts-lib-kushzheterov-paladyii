@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,7 @@
         * {
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -18,28 +19,28 @@
             max-width: 600px;
             margin: 0 auto;
         }
-        
+
         h1 {
             color: #2c3e50;
             border-bottom: 2px solid #3498db;
             padding-bottom: 10px;
         }
-        
+
         .form-group {
             margin-bottom: 20px;
             padding: 15px;
             background: white;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
-        
+
         label {
             display: block;
             margin-bottom: 8px;
             font-weight: 600;
             color: #2c3e50;
         }
-        
+
         input[type="text"],
         input[type="email"],
         input[type="password"],
@@ -51,36 +52,36 @@
             font-size: 16px;
             transition: border-color 0.3s;
         }
-        
+
         input:focus {
             outline: none;
             border-color: #3498db;
         }
-        
+
         input.error {
             border-color: #e74c3c;
             background-color: #fff5f5;
         }
-        
+
         input.success {
             border-color: #2ecc71;
             background-color: #f5fff7;
         }
-        
+
         .error {
             color: #e74c3c;
             font-size: 14px;
             margin-top: 5px;
             display: block;
         }
-        
+
         .success {
             color: #2ecc71;
             font-size: 14px;
             margin-top: 5px;
             display: block;
         }
-        
+
         button {
             padding: 12px 24px;
             background: #3498db;
@@ -92,24 +93,24 @@
             transition: background 0.3s;
             margin-right: 10px;
         }
-        
+
         button:hover {
             background: #2980b9;
         }
-        
+
         #result {
             margin-top: 30px;
             padding: 20px;
             border-radius: 8px;
             display: none;
         }
-        
+
         .valid {
             background: #d4edda;
             color: #155724;
             border: 1px solid #c3e6cb;
         }
-        
+
         .invalid {
             background: #f8d7da;
             color: #721c24;
@@ -117,81 +118,66 @@
         }
     </style>
 </head>
+
 <body>
     <h1>FormGuard Demo</h1>
-    <p>Server running on: <code id="server-url"></code></p>
-    
+
     <form id="demoForm" novalidate>
+        <div class="form-group">
+            <label for="name">Имя *</label>
+            <input type="text" name="name" id="name" required autocomplete="name" oninput="formatName(this)">
+            <div data-error-for="name"></div>
+        </div>
+
         <div class="form-group">
             <label for="email">Email *</label>
             <input type="email" name="email" id="email" required autocomplete="email">
             <div data-error-for="email"></div>
         </div>
-        
+
         <div class="form-group">
-            <label for="password">Password *</label>
-            <input type="password" name="password" id="password" minlength="6" autocomplete="current-password">
+            <label for="password">Пароль *</label>
+            <div style="position: relative;">
+                <input type="password" name="password" id="password" minlength="6" autocomplete="current-password">
+                <button type="button" id="togglePassword" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 14px; color: #3498db;">Показать</button>
+            </div>
             <div data-error-for="password"></div>
         </div>
-        
+
         <div class="form-group">
-            <label for="age">Age</label>
+            <label for="age">Возраст</label>
             <input type="number" name="age" id="age" min="18" max="100" autocomplete="off">
             <div data-error-for="age"></div>
         </div>
-        
-        <div class="form-group">
-            <label>Interests (select at least 2)</label><br>
-            <label><input type="checkbox" name="interests[]" value="sports"> Sports</label><br>
-            <label><input type="checkbox" name="interests[]" value="music"> Music</label><br>
-            <label><input type="checkbox" name="interests[]" value="books"> Books</label><br>
-            <div data-error-for="interests[]"></div>
-        </div>
-        
-        <button type="submit">Submit</button>
-        <button type="button" id="clearBtn">Clear Errors</button>
+
+
+        <button type="submit">Отправить</button>
     </form>
 
     <div id="result"></div>
-    <div id="debug" style="margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 5px; display: none;">
-        <h3>Debug Info:</h3>
-        <pre id="debug-log"></pre>
-    </div>
 
-    <script type="module">
-        // Показываем URL сервера
-        document.getElementById('server-url').textContent = window.location.href;
-        
-        // Функция для логирования отладки
-        const debugLog = document.getElementById('debug-log');
-        const debugDiv = document.getElementById('debug');
-        
-        function log(message) {
-            console.log(message);
-            if (debugLog) {
-                debugLog.textContent += message + '\n';
-                debugDiv.style.display = 'block';
+    <script>
+        // Функция для форматирования имени
+        function formatName(input) {
+            // Убираем все не-буквенные символы кроме пробелов
+            input.value = input.value.replace(/[^a-zA-Zа-яА-ЯёЁ\s]/g, '');
+            // Делаем первую букву заглавной
+            if (input.value.length > 0) {
+                input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
             }
         }
-        
-        log('🚀 Starting FormGuard demo...');
-        log(`📄 Current URL: ${window.location.href}`);
-        log(`📁 Trying to import from: ./dist/index.js`);
-        
+    </script>
+
+    <script type="module">
         try {
-            // ИСПРАВЛЕНО: путь должен быть ./dist/index.js (не ../dist/index.js)
-            import('./dist/index.js').then(module => {
-                log('✅ Library imported successfully!');
-                
+            import('./dist/form-guard.js').then(module => {
                 const FormGuard = module.default;
-                log(`📦 FormGuard class: ${FormGuard ? 'Loaded' : 'Not found'}`);
-                
+
                 const form = document.getElementById('demoForm');
                 if (!form) {
-                    log('❌ ERROR: Form element not found!');
                     return;
                 }
-                
+
                 // Создаем валидатор
                 const validator = new FormGuard(form, {
                     validateOnChange: true,
@@ -199,124 +185,78 @@
                     errorClass: 'error',
                     successClass: 'success'
                 });
-                
-                log('✅ Validator created successfully');
-                
+
                 // Добавляем поля с валидацией
-                try {
-                    validator
-                        .addField('email', [
-                            { rule: 'required', errorMessage: 'Email is required' },
-                            { rule: 'email', errorMessage: 'Please enter a valid email' }
-                        ])
-                        .addField('password', [
-                            { rule: 'required', errorMessage: 'Password is required' },
-                            { rule: 'minLength', value: 6, errorMessage: 'Password must be at least 6 characters' }
-                        ])
-                        .addField('age', [
-                            { rule: 'min', value: 18, errorMessage: 'You must be at least 18 years old' },
-                            { rule: 'max', value: 100, errorMessage: 'Age must be less than 100' }
-                        ])
-                        .addField('interests[]', [
-                            { rule: 'required', errorMessage: 'Please select at least one interest' },
-                            { rule: 'minLength', value: 2, errorMessage: 'Select at least 2 interests' }
-                        ]);
-                    
-                    log('✅ Fields validation added');
-                    
-                } catch (fieldError) {
-                    log(`❌ Error adding field validation: ${fieldError.message}`);
-                }
-                
+                validator
+                    .addField('name', [
+                        { rule: 'required' },
+                        { rule: 'minLength', value: 2 }
+                    ])
+                    .addField('email', [
+                        { rule: 'required' },
+                        { rule: 'email' }
+                    ])
+                    .addField('password', [
+                        { rule: 'required' },
+                        { rule: 'minLength', value: 6 }
+                    ])
+                    .addField('age', [
+                        { rule: 'min', value: 18 },
+                        { rule: 'max', value: 100 }
+                    ]);
+
                 const resultDiv = document.getElementById('result');
-                const clearBtn = document.getElementById('clearBtn');
-                
+                const togglePassword = document.getElementById('togglePassword');
+                const passwordField = document.getElementById('password');
+
                 // Обработчик submit
                 form.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    log('📝 Form submitted, validating...');
-                    
-                    try {
-                        const result = validator.validate();
-                        log(`📊 Validation result: ${result.isValid ? 'VALID' : 'INVALID'} (${result.errors.length} errors)`);
-                        
-                        if (result.isValid) {
-                            resultDiv.className = 'valid';
-                            resultDiv.style.display = 'block';
-                            resultDiv.innerHTML = `
-                                <h3>✅ Form is valid!</h3>
-                                <p>Form data:</p>
-                                <pre>${JSON.stringify(getFormData(form), null, 2)}</pre>
-                                <p><em>In a real app, the form would submit now.</em></p>
-                            `;
-                        } else {
-                            resultDiv.className = 'invalid';
-                            resultDiv.style.display = 'block';
-                            resultDiv.innerHTML = `
-                                <h3>❌ Form has ${result.errors.length} error(s):</h3>
-                                <ul>
-                                    ${result.errors.map(error => `<li><strong>${error.field}:</strong> ${error.message}</li>`).join('')}
-                                </ul>
-                            `;
-                        }
-                    } catch (validateError) {
-                        log(`❌ Validation error: ${validateError.message}`);
-                        resultDiv.className = 'invalid';
-                        resultDiv.style.display = 'block';
-                        resultDiv.innerHTML = `<h3>❌ Validation Error</h3><p>${validateError.message}</p>`;
-                    }
-                });
-                
-                // Кнопка для очистки ошибок
-                if (clearBtn) {
-                    clearBtn.addEventListener('click', () => {
-                        validator.clearErrors();
-                        resultDiv.style.display = 'none';
-                        log('🧹 All errors cleared');
-                    });
-                }
-                
-                // Вспомогательная функция для получения данных формы
-                function getFormData(formElement) {
-                    const formData = new FormData(formElement);
-                    const data = {};
-                    
-                    for (let [key, value] of formData.entries()) {
-                        if (key.includes('[]')) {
-                            const cleanKey = key.replace('[]', '');
-                            if (!data[cleanKey]) {
-                                data[cleanKey] = [];
-                            }
-                            data[cleanKey].push(value);
-                        } else {
+                    const result = validator.validate();
+                    if (!result.isValid) {
+                        e.preventDefault();
+                    } else {
+                        e.preventDefault(); // Предотвращаем реальную отправку
+
+                        // Собираем данные формы
+                        const formData = new FormData(form);
+                        const data = {};
+                        for (let [key, value] of formData.entries()) {
                             data[key] = value;
                         }
+                        console.log('Отправленные данные:', data);
+
+                        // Очищаем форму
+                        form.reset();
+                        // Убираем все цвета (делаем серыми)
+                        const inputs = form.querySelectorAll('input');
+                        inputs.forEach(input => {
+                            input.classList.remove('error', 'success');
+                        });
+
+                        // Показываем сообщение на 2 секунды
+                        resultDiv.className = 'valid';
+                        resultDiv.style.display = 'block';
+                        resultDiv.innerHTML = '<h3>✅ Форма отправлена успешно!</h3>';
+
+                        setTimeout(() => {
+                            resultDiv.style.display = 'none';
+                        }, 2000);
                     }
-                    
-                    return data;
+                });
+
+                // Переключение видимости пароля
+                if (togglePassword && passwordField) {
+                    togglePassword.addEventListener('click', () => {
+                        const type = passwordField.type === 'password' ? 'text' : 'password';
+                        passwordField.type = type;
+                        togglePassword.textContent = type === 'password' ? 'Показать' : 'Скрыть';
+                    });
                 }
-                
-                // Тестируем сразу
-                log('🔍 Running initial validation test...');
-                const initialResult = validator.validate();
-                log(`Initial test: ${initialResult.isValid ? 'PASS' : 'FAIL'} (${initialResult.errors.length} errors)`);
-                
-            }).catch(importError => {
-                log(`❌ FAILED to import library: ${importError.message}`);
-                log(`Full error: ${importError}`);
-                document.getElementById('result').innerHTML = `
-                    <div class="invalid">
-                        <h3>❌ Library Import Failed</h3>
-                        <p>Error: ${importError.message}</p>
-                        <p>Check console for details.</p>
-                        <p>Make sure you ran <code>npm run build</code></p>
-                    </div>
-                `;
             });
-            
-        } catch (globalError) {
-            log(`❌ Global error: ${globalError.message}`);
+        } catch (error) {
+            console.error('Error loading FormGuard:', error);
         }
     </script>
 </body>
+
 </html>
