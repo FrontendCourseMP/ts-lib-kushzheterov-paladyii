@@ -180,8 +180,8 @@
 
                 // Создаем валидатор
                 const validator = new FormGuard(form, {
-                    validateOnChange: true,
-                    validateOnBlur: true,
+                    validateOnChange: false,
+                    validateOnBlur: false,
                     errorClass: 'error',
                     successClass: 'success'
                 });
